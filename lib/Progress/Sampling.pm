@@ -1,28 +1,36 @@
 use strict;
 use warnings;
 package Progress::Sampling;
-use fields qw( max interval format _format _format_fields _started_at _count _elapsed );
+use fields qw( max interval format format_specifier _format _format_fields _started_at _count _elapsed );
 use Time::HiRes qw( gettimeofday tv_interval );
 use Readonly;
 
 Readonly my %DEFAULT => (
-    interval => 10,
-    format   => "__PERCENTAGE__[%] = __COUNT__/__MAX__,\t__SPEED__,\t__REMAIN__[s] remain",
-);
-Readonly my %FORMAT => (
-    __PERCENTAGE__ => q{%d},
-    __COUNT__      => q{%d},
-    __MAX__        => q{%d},
-    __SPEED__      => q{%.4f},
-    __REMAIN__     => q{%d},
+    interval         => 10,
+    format           => "__PERCENTAGE__[%] = __COUNT__/__MAX__,\t__SPEED__,\t__REMAIN__[s] remain",
+    format_specifier => {
+        __PERCENTAGE__ => q{%d},
+        __COUNT__      => q{%d},
+        __MAX__        => q{%d},
+        __SPEED__      => q{%.4f},
+        __REMAIN__     => q{%d},
+    },
 );
 
 sub new {
     my $class = shift;
     my %param = @_;
 
-    $param{ $_ } = $DEFAULT{ $_ }
-        for grep { !exists $param{ $_ } } keys %DEFAULT;
+    for my $key ( grep { !exists $param{ $_ } } keys %DEFAULT ) {
+        $param{ $key } = $DEFAULT{ $key };
+
+        if ( $key eq "format_specifier" && ( my $max = $param{max} || $DEFAULT{max} ) ) {
+            $param{format_specifier} = {
+                %{ $DEFAULT{format_specifier} },
+                __COUNT__ => sprintf "%%%dd", length $max,
+            };
+        }
+    }
 
     my $self = fields::new( $class );
 
@@ -39,7 +47,7 @@ sub gen_format {
     $format_str =~ s{[%]}{%%}g;
     $format_str =~ s{(__[A-Z]+__)}{
         push @fields, $1;
-        $FORMAT{ $1 };
+        $self->{format_specifier}{ $1 };
     }egmsx;
 
     return ( $format_str, \@fields );
