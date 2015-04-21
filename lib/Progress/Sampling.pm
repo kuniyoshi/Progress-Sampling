@@ -16,6 +16,7 @@ Readonly my %DEFAULT => (
         __REMAIN__     => q{%d},
     },
 );
+Readonly my $FORMAT_WITHOUT_MAX => "progress: __COUNT__\t__SPEED__";
 
 sub new {
     my $class = shift;
@@ -56,7 +57,8 @@ sub gen_format {
 sub init {
     my $self = shift;
     $self->{_started_at} = [ gettimeofday ];
-    @{ $self }{ qw( _format _format_fields ) } = $self->gen_format( $self->{format} );
+    my $format = $self->{max} ? $self->{format} : $FORMAT_WITHOUT_MAX;
+    @{ $self }{ qw( _format _format_fields ) } = $self->gen_format( $format );
     return $self;
 }
 
