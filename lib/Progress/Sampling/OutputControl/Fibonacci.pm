@@ -26,8 +26,12 @@ sub can_skip {
     my $self  = shift;
     my $count = shift || 0;
 
+    if ( !$self->{_did_exceed} && $count > $self->{max} ) {
+        $self->{_did_exceed} = 1;
+    }
+
     if ( $self->{_did_exceed} ) {
-        return ( ( $count % $self->{max} ) == 0 );
+        return $count % $self->{max};
     }
 
     my $can_not_skip = $count == $NUMBERS[ $self->{_current} ];
