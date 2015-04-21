@@ -1,9 +1,11 @@
 use strict;
 use warnings;
 package Progress::Sampling;
-use fields qw( max interval format format_specifier _format _format_fields _started_at _count _elapsed );
+use fields qw( max interval format format_specifier _output_controler _format _format_fields _started_at _count _elapsed );
 use Time::HiRes qw( gettimeofday tv_interval );
 use Readonly;
+use Progress::Sampling::OutputControl::Linear;
+use Progress::Sampling::OutputControl::Fibonacci;
 
 Readonly my %DEFAULT => (
     interval         => 10,
@@ -56,21 +58,39 @@ sub gen_format {
 
 sub init {
     my $self = shift;
+    my $format;
+    my $output_controler;
+
     $self->{_started_at} = [ gettimeofday ];
-    my $format = $self->{max} ? $self->{format} : $FORMAT_WITHOUT_MAX;
+
+    if ( exists $self->{max} ) {
+        $format = $self->{format};
+    }
+    else {
+        $format = $FORMAT_WITHOUT_MAX;
+    }
+
     @{ $self }{ qw( _format _format_fields ) } = $self->gen_format( $format );
+
+    if ( exists $self->{max} ) {
+        $output_controler = Progress::Sampling::OutputControl::Linear->new(
+            interval => $self->{interval},
+        );
+    }
+    else {
+        $output_controler = Progress::Sampling::OutputControl::Fibonacci->new;
+    }
+
+    $self->{_output_controler} = $output_controler;
+
     return $self;
 }
 
 sub worked {
     my $self = shift;
 
-    $self->{_count}++;
-
-    my $need_to_generate = ( $self->{_count} % $self->{interval} ) == 0;
-
     return
-        unless $need_to_generate;
+        if $self->{_output_controler}->can_skip( $self->{_count}++ );
 
     $self->{_elapsed} = tv_interval( $self->{_started_at} );
 
